@@ -2,9 +2,10 @@
 """
 GRIF VPN — автообновление подписки.
 Источник: только VansFenix vless.txt
-Названия: [🇬🇷 GRIF | <оригинальное имя из VansFenix>]
+Названия: [🇬🇷 GRIF | <оригинальное имя без VFPARSER>]
 """
 
+import re
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -26,26 +27,38 @@ def fetch_source(url: str) -> str:
 
 
 def get_old_name(line: str) -> str:
-    """Достаём оригинальное имя после #"""
     return line.split("#", 1)[1] if "#" in line else ""
 
 
+def clean_old_name(name: str) -> str:
+    """Убираем мусорные маркеры из имени."""
+    # URL-decode на случай %20 и прочего
+    name = urllib.parse.unquote(name)
+
+    # Убираем "VFPARSER" в любом регистре и с любыми пробелами вокруг
+    name = re.sub(r"\s*VFPARSER\s*", " ", name, flags=re.IGNORECASE)
+
+    # Схлопываем двойные пробелы
+    name = re.sub(r"\s+", " ", name).strip()
+
+    # Убираем висячие разделители в конце/начале
+    name = name.strip(" |")
+
+    return name
+
+
 def process_line(line: str) -> str:
-    """
-    Берём оригинальную строку vless:// как есть,
-    меняем только фрагмент (#...) на [PREFIX + оригинальное имя].
-    Всё остальное (UUID, адрес, порт, параметры) — не трогаем.
-    """
     line = line.strip()
     old_name = get_old_name(line)
+    clean = clean_old_name(old_name)
 
-    # Если у ключа вообще нет имени — ставим просто GRIF
-    if old_name:
-        new_name = PREFIX + old_name
+    if clean:
+        new_name = PREFIX + clean
     else:
         new_name = PREFIX.rstrip(" |")
 
     base = line.split("#", 1)[0]
+    # Кодируем только то, что нужно (пробелы, пайпы, эмодзи — оставляем как есть)
     return base + "#" + new_name
 
 
@@ -63,20 +76,17 @@ def main():
         if not l:
             continue
 
-        # Комментарии/шапку источника сохраняем как есть
         if l.startswith("#"):
             kept.append(l)
             continue
 
-        # Только vless:// — как в источнике
         if not l.lower().startswith("vless://"):
             skipped_not_vless += 1
             continue
 
         kept.append(process_line(l))
 
-    # Заменяем шапку на свою (для брендинга)
-    # Убираем старые #profile-title, #announce и т.п. из источника
+    # Чистим шапку источника и ставим свою
     filtered = []
     for l in kept:
         if l.startswith("#profile-title:") or \
@@ -96,7 +106,7 @@ def main():
 
     Path(OUTPUT_FILE).write_text("\n".join(result) + "\n", encoding="utf-8")
     print(f"✅ {OUTPUT_FILE}")
-    print(f"   Ключей сохранено: {sum(1 for x in result if x.startswith('vless://'))}")
+    print(f"   Ключей: {sum(1 for x in result if x.startswith('vless://'))}")
     print(f"   Не-vless выкинуто: {skipped_not_vless}")
 
 
