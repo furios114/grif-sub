@@ -2,7 +2,7 @@ name: Update GRIF subscription
 
 on:
   schedule:
-    - cron: '*/30 * * * *'   # каждые 30 минут
+    - cron: '*/10 * * * *'
   workflow_dispatch:          # можно запустить вручную из вкладки Actions
 
 permissions:
