@@ -1,0 +1,36 @@
+name: Update GRIF subscription
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # каждые 30 минут
+  workflow_dispatch:          # можно запустить вручную из вкладки Actions
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate branded subscription
+        run: python brand.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name  "grif-bot"
+          git config user.email "grif-bot@users.noreply.github.com"
+          git add grif_branded.txt
+          if git diff --staged --quiet; then
+            echo "Нет изменений — коммит не нужен"
+          else
+            git commit -m "Auto-update $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          fi
